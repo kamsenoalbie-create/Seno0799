@@ -1,0 +1,1844 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LPK Puji Bela Sejahtera - Sistem Informasi CPMI & Keuangan Terpadu</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for Visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Firebase SDKs for Cloud Backup -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        window.firebaseModules = { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, getFirestore, doc, setDoc, getDoc };
+    </script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                            800: '#0c4a6e',
+                            900: '#0f172a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Application Controller Logic loaded BEFORE Alpine -->
+    <script>
+        function appData() {
+            return {
+                sidebarOpen: false,
+                activeTab: 'dashboard',
+                searchCpmi: '',
+                filterStatus: 'ALL',
+                filterDestination: 'ALL',
+
+                prosesViewMode: 'spreadsheet',
+                searchProses: '',
+                filterProsesStage: 'ALL',
+
+                searchMedikal: '',
+                showMedikalModal: false,
+                isEditingMedikal: false,
+                editingMedikalId: null,
+                formMedikal: {
+                    cpmiName: '',
+                    clinicName: '',
+                    checkDate: new Date().toISOString().split('T')[0],
+                    price: 750000,
+                    clinicPrice: 500000,
+                    status: 'FIT / Lolos',
+                    notes: 'Pemeriksaan standar lengkap'
+                },
+
+                searchP3mi: '',
+                showP3miModal: false,
+                isEditingP3mi: false,
+                editingP3miId: null,
+                formP3mi: {
+                    name: '', contactPerson: '', phone: '', destinationCountry: '', address: ''
+                },
+
+                searchKeuanganCabang: '',
+
+                cetakReportType: 'cpmi',
+                cetakSearchQuery: '',
+                isCloudLoading: false,
+
+                tabTitles: {
+                    'dashboard': 'Dashboard KPI & Statistik Operasional',
+                    'pendaftaran': 'Formulir Pendaftaran CPMI Baru',
+                    'cpmi': 'Spreadsheet Database Induk CPMI',
+                    'proses': 'Tracking Tahapan CPMI',
+                    'medikal': 'Modul Spreadsheet Medikal & MCU CPMI',
+                    'sponsor': 'Manajemen Sponsor & Pengarah Lapangan (PL)',
+                    'p3mi': 'Direktori Daftar P3MI Resmi',
+                    'keuangan-pusat': 'Buku Kas & Laporan Keuangan',
+                    'keuangan-cabang': 'Buku Kas & Operasional Keuangan Sponsor dan CPMI',
+                    'menu-cetak': 'Menu Cetak & Laporan Resmi Enterprise',
+                    'cloud-backup': 'Google Cloud Backup & Restore'
+                },
+
+                processStages: [
+                    'Daftar',
+                    'Rumah',
+                    'Cabang',
+                    'Medikal',
+                    'Pusat'
+                ],
+
+                showCpmiModal: false,
+                activeCpmi: null,
+
+                showEditCpmiModal: false,
+                editingCpmiId: null,
+                formEditCpmi: {
+                    name: '', gender: 'Laki-Laki', dob: '', phone: '', tb: '', bb: '', shelterDate: '', address: '', destination: '', jobRole: '', sponsorNameManual: ''
+                },
+
+                showAddSponsorModal: false,
+                isEditingSponsor: false,
+                editingSponsorId: null,
+                formSponsor: { name: '', phone: '', region: '' },
+
+                showAddTxModal: false,
+                txTargetScope: 'pusat',
+                isEditingPusat: false,
+                editingPusatId: null,
+                isEditingCabang: false,
+                editingCabangId: null,
+                formTx: { 
+                    type: 'PEMASUKAN', 
+                    cpmiName: '', 
+                    dp1: 0, dp1Date: '', 
+                    dp2: 0, dp2Date: '', 
+                    pelunasan: 0, pelunasanDate: '', 
+                    hargamcu: 0, 
+                    kasbon: 0, kasbonDate: '', 
+                    category: '', 
+                    description: '', 
+                    amount: 0, 
+                    date: new Date().toISOString().split('T')[0] 
+                },
+
+                formCpmi: {
+                    name: '',
+                    gender: 'Laki-Laki',
+                    dob: '2000-01-01',
+                    phone: '',
+                    tb: '165 cm',
+                    bb: '55 kg',
+                    shelterDate: new Date().toISOString().split('T')[0],
+                    address: '',
+                    destination: '',
+                    jobRole: '',
+                    sponsorNameManual: '',
+                    status: 'Daftar',
+                    regFee: 0,
+                    regDate: new Date().toISOString().split('T')[0]
+                },
+
+                toasts: [],
+
+                sponsorList: [],
+                p3miList: [],
+                cpmiList: [],
+                medikalList: [],
+                keuanganPusat: [],
+                keuanganCabang: [],
+
+                chartInstance: null,
+
+                initApp() {
+                    this.loadInitialData();
+                    this.initChart();
+
+                    this.$watch('cpmiList', () => {
+                        this.saveToLocalStorage();
+                        this.updateChart();
+                    });
+                    this.$watch('medikalList', () => this.saveToLocalStorage());
+                    this.$watch('p3miList', () => this.saveToLocalStorage());
+                    this.$watch('keuanganPusat', () => this.saveToLocalStorage());
+                    this.$watch('keuanganCabang', () => this.saveToLocalStorage());
+                    this.$watch('sponsorList', () => this.saveToLocalStorage());
+                },
+
+                initChart() {
+                    const ctx = document.getElementById('cpmiRegistrationChart');
+                    if (!ctx) return;
+
+                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+                    const counts = new Array(12).fill(0);
+
+                    this.cpmiList.forEach(c => {
+                        if (c.regDate) {
+                            const d = new Date(c.regDate);
+                            if (!isNaN(d.getMonth())) {
+                                counts[d.getMonth()]++;
+                            }
+                        }
+                    });
+
+                    this.chartInstance = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: months,
+                            datasets: [{
+                                label: 'Jumlah Pendaftaran CPMI',
+                                data: counts,
+                                backgroundColor: 'rgba(2, 132, 199, 0.8)',
+                                borderColor: 'rgba(2, 132, 199, 1)',
+                                borderWidth: 1,
+                                borderRadius: 6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: { precision: 0 }
+                                }
+                            }
+                        }
+                    });
+                },
+
+                updateChart() {
+                    if (!this.chartInstance) return;
+                    const counts = new Array(12).fill(0);
+                    this.cpmiList.forEach(c => {
+                        if (c.regDate) {
+                            const d = new Date(c.regDate);
+                            if (!isNaN(d.getMonth())) {
+                                counts[d.getMonth()]++;
+                            }
+                        }
+                    });
+                    this.chartInstance.data.datasets[0].data = counts;
+                    this.chartInstance.update();
+                },
+
+                notify(message, type = 'success', icon = 'fa-solid fa-circle-check') {
+                    const id = Date.now();
+                    this.toasts.push({ id, message, type, icon });
+                    setTimeout(() => {
+                        this.toasts = this.toasts.filter(t => t.id !== id);
+                    }, 3500);
+                },
+
+                loadInitialData() {
+                    const savedCpmi = localStorage.getItem('lpk_puji_cpmi');
+                    const savedMedikal = localStorage.getItem('lpk_puji_medikal');
+                    const savedSponsor = localStorage.getItem('lpk_puji_sponsor');
+                    const savedP3mi = localStorage.getItem('lpk_puji_p3mi');
+                    const savedPusat = localStorage.getItem('lpk_puji_pusat');
+                    const savedCabang = localStorage.getItem('lpk_puji_cabang');
+
+                    if (savedCpmi && savedSponsor && savedPusat && savedCabang) {
+                        this.cpmiList = JSON.parse(savedCpmi);
+                        this.medikalList = savedMedikal ? JSON.parse(savedMedikal) : [];
+                        this.sponsorList = JSON.parse(savedSponsor);
+                        this.p3miList = savedP3mi ? JSON.parse(savedP3mi) : [];
+                        this.keuanganPusat = JSON.parse(savedPusat);
+                        this.keuanganCabang = JSON.parse(savedCabang);
+                    } else {
+                        this.resetToDefaultData(false);
+                    }
+                },
+
+                resetToDefaultData(notifyUser = true) {
+                    this.sponsorList = [
+                        { id: 'S-01', code: 'PL-001', name: 'H. Ahmad Safei', phone: '081233445566', region: 'Indramayu' },
+                        { id: 'S-02', code: 'PL-002', name: 'Ibu Ratna Dewi', phone: '085711223344', region: 'Lombok Tengah' },
+                        { id: 'S-03', code: 'PL-003', name: 'Bpk. Hendra Wijaya', phone: '082199887766', region: 'Cirebon' },
+                        { id: 'S-04', code: 'PL-004', name: 'Hj. Nurasiah', phone: '081988776655', region: 'Majalengka' }
+                    ];
+
+                    this.p3miList = [
+                        { id: 'P3MI-1', code: 'P3MI-001', name: 'PT. Bina Mandiri Utama', contactPerson: 'Bpk. Suryanto', phone: '021-555888', destinationCountry: 'Taiwan, Hong Kong', address: 'Jl. Letjen Haryono MT No. 12, Jakarta Selatan' },
+                        { id: 'P3MI-2', code: 'P3MI-002', name: 'PT. Prima Duta Sejahtera', contactPerson: 'Ibu Siska Melati', phone: '021-777999', destinationCountry: 'Jepang (SSW/TITP)', address: 'Jl. Raya Condet No. 45, Jakarta Timur' },
+                        { id: 'P3MI-3', code: 'P3MI-003', name: 'PT. Sumber Karyajaya Internasional', contactPerson: 'Bpk. Dedi Kusnadi', phone: '022-423111', destinationCountry: 'Malaysia, Singapura', address: 'Jl. Asia Afrika No. 88, Bandung' }
+                    ];
+
+                    this.cpmiList = [
+                        { id: 1, code: 'CPMI-2026-001', name: 'Siti Aminah', gender: 'Perempuan', dob: '1998-05-12', phone: '081298765432', tb: '158 cm', bb: '50 kg', shelterDate: '2026-08-05', address: 'Kec. Jatibarang, Indramayu', destination: 'Taiwan', jobRole: 'Caregiver', sponsorNameManual: 'H. Ahmad Safei', status: 'Cabang', regDate: '2026-08-10' },
+                        { id: 2, code: 'CPMI-2026-002', name: 'Budi Santoso', gender: 'Laki-Laki', dob: '1995-03-20', phone: '085612345678', tb: '172 cm', bb: '65 kg', shelterDate: '2026-07-10', address: 'Kec. Praya, Lombok Tengah', destination: 'Jepang (SSW/TITP)', jobRole: 'Konstruksi', sponsorNameManual: 'Ibu Ratna Dewi', status: 'Pusat', regDate: '2026-07-15' },
+                        { id: 3, code: 'CPMI-2026-003', name: 'Dewi Lestari', gender: 'Perempuan', dob: '2000-11-04', phone: '082233445566', tb: '160 cm', bb: '48 kg', shelterDate: '2026-08-20', address: 'Kec. Sumber, Cirebon', destination: 'Hong Kong', jobRole: 'PRT', sponsorNameManual: 'Bpk. Hendra Wijaya', status: 'Medikal', regDate: '2026-08-28' },
+                        { id: 4, code: 'CPMI-2026-004', name: 'Rahmat Hidayat', gender: 'Laki-Laki', dob: '1997-08-15', phone: '081377889900', tb: '170 cm', bb: '60 kg', shelterDate: '2026-05-25', address: 'Kota Medan', destination: 'Arab Saudi', jobRole: 'Pabrik', sponsorNameManual: 'Direct', status: 'Rumah', regDate: '2026-06-01' },
+                        { id: 5, code: 'CPMI-2026-005', name: 'Ahmad Fauzi', gender: 'Laki-Laki', dob: '1999-12-30', phone: '085234567891', tb: '175 cm', bb: '68 kg', shelterDate: '2026-08-25', address: 'Kec. Gresik, Jawa Timur', destination: 'Jepang (SSW/TITP)', jobRole: 'Pengolahan Makanan', sponsorNameManual: 'H. Ahmad Safei', status: 'Daftar', regDate: '2026-09-01' }
+                    ];
+
+                    this.medikalList = [
+                        { id: 'M-1', cpmiName: 'Siti Aminah', clinicName: 'Klinik Sehat Medika Indramayu', checkDate: '2026-08-12', price: 750000, clinicPrice: 500000, status: 'FIT / Lolos', notes: 'Pemeriksaan tensi dan laboratorium normal' },
+                        { id: 'M-2', cpmiName: 'Budi Santoso', clinicName: 'RS Bhayangkara Mataram', checkDate: '2026-07-18', price: 850000, clinicPrice: 600000, status: 'FIT / Lolos', notes: 'Rontgen thorax bersih' },
+                        { id: 'M-3', cpmiName: 'Dewi Lestari', clinicName: 'Klinik Medika Cirebon', checkDate: '2026-08-29', price: 750000, clinicPrice: 500000, status: 'Pending / Re-MCU', notes: 'Menunggu hasil lab ulang' }
+                    ];
+
+                    this.keuanganPusat = [
+                        { id: 'TP-1', date: '2026-08-01', cpmiName: 'Siti Aminah', dp1: 25000000, dp2: 50000000, pelunasan: 0, hargamcu: 750000, description: 'Penerimaan termin awal Agensi Taiwan' },
+                        { id: 'TP-2', date: '2026-08-15', cpmiName: 'Budi Santoso', dp1: 0, dp2: 0, pelunasan: 15000000, hargamcu: 850000, description: 'Pembayaran sewa gedung pelatihan' },
+                        { id: 'TP-3', date: '2026-08-20', cpmiName: 'Dewi Lestari', dp1: 0, dp2: 6000000, pelunasan: 0, hargamcu: 750000, description: 'Pencairan komisi PL H. Ahmad Safei' }
+                    ];
+
+                    this.keuanganCabang = [
+                        { id: 'TC-1', date: '2026-08-10', cpmiName: 'Budi Santoso', dp1: 1500000, dp1Date: '2026-08-10', dp2: 0, dp2Date: '', pelunasan: 0, pelunasanDate: '', kasbon: 500000, kasbonDate: '2026-08-10', category: 'Uang Saku Reg', description: 'Penerimaan registrasi Budi Santoso' },
+                        { id: 'TC-2', date: '2026-08-12', cpmiName: 'Budi Santoso', dp1: 0, dp1Date: '', dp2: 850000, dp2Date: '2026-08-12', pelunasan: 0, pelunasanDate: '', kasbon: 0, kasbonDate: '', category: 'Medical Lokal', description: 'Biaya medical checkup di Klinik Lombok' },
+                        { id: 'TC-3', date: '2026-08-28', cpmiName: 'Siti Aminah', dp1: 1000000, dp1Date: '2026-08-28', dp2: 0, dp2Date: '', pelunasan: 500000, pelunasanDate: '2026-08-28', kasbon: 0, kasbonDate: '', category: 'Uang Saku Reg', description: 'Penerimaan pendaftaran Siti Aminah' }
+                    ];
+
+                    this.saveToLocalStorage();
+                    this.updateChart();
+                    if (notifyUser) {
+                        this.notify('Data demo berhasil di-reset ke kondisi awal!', 'info', 'fa-solid fa-arrows-rotate');
+                    }
+                },
+
+                saveToLocalStorage() {
+                    localStorage.setItem('lpk_puji_cpmi', JSON.stringify(this.cpmiList));
+                    localStorage.setItem('lpk_puji_medikal', JSON.stringify(this.medikalList));
+                    localStorage.setItem('lpk_puji_sponsor', JSON.stringify(this.sponsorList));
+                    localStorage.setItem('lpk_puji_p3mi', JSON.stringify(this.p3miList));
+                    localStorage.setItem('lpk_puji_pusat', JSON.stringify(this.keuanganPusat));
+                    localStorage.setItem('lpk_puji_cabang', JSON.stringify(this.keuanganCabang));
+                },
+
+                async backupToCloud() {
+                    if (!window.firebaseModules) {
+                        this.notify('Modul Firebase belum termuat.', 'error');
+                        return;
+                    }
+                    this.isCloudLoading = true;
+                    try {
+                        const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, getFirestore, doc, setDoc } = window.firebaseModules;
+                        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                        const app = initializeApp(firebaseConfig);
+                        const auth = getAuth(app);
+                        const db = getFirestore(app);
+
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+
+                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                        const userId = auth.currentUser?.uid || crypto.randomUUID();
+
+                        const backupPayload = {
+                            cpmiList: this.cpmiList,
+                            medikalList: this.medikalList,
+                            sponsorList: this.sponsorList,
+                            p3miList: this.p3miList,
+                            keuanganPusat: this.keuanganPusat,
+                            keuanganCabang: this.keuanganCabang,
+                            updatedAt: new Date().toISOString()
+                        };
+
+                        const docRef = doc(db, 'artifacts', appId, 'users', userId, 'backups', 'latest');
+                        await setDoc(docRef, backupPayload);
+
+                        this.notify('Berhasil backup data ke Google Cloud!', 'success', 'fa-solid fa-cloud-arrow-up');
+                    } catch (e) {
+                        console.error(e);
+                        this.notify('Gagal backup ke Google Cloud: ' + e.message, 'error');
+                    } finally {
+                        this.isCloudLoading = false;
+                    }
+                },
+
+                async restoreFromCloud() {
+                    if (!window.firebaseModules) {
+                        this.notify('Modul Firebase belum termuat.', 'error');
+                        return;
+                    }
+                    this.isCloudLoading = true;
+                    try {
+                        const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, getFirestore, doc, getDoc } = window.firebaseModules;
+                        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                        const app = initializeApp(firebaseConfig);
+                        const auth = getAuth(app);
+                        const db = getFirestore(app);
+
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+
+                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                        const userId = auth.currentUser?.uid || crypto.randomUUID();
+
+                        const docRef = doc(db, 'artifacts', appId, 'users', userId, 'backups', 'latest');
+                        const snap = await getDoc(docRef);
+
+                        if (snap.exists()) {
+                            const data = snap.data();
+                            if (data.cpmiList) this.cpmiList = data.cpmiList;
+                            if (data.medikalList) this.medikalList = data.medikalList;
+                            if (data.sponsorList) this.sponsorList = data.sponsorList;
+                            if (data.p3miList) this.p3miList = data.p3miList;
+                            if (data.keuanganPusat) this.keuanganPusat = data.keuanganPusat;
+                            if (data.keuanganCabang) this.keuanganCabang = data.keuanganCabang;
+
+                            this.saveToLocalStorage();
+                            this.updateChart();
+                            this.notify('Berhasil restore data dari Google Cloud!', 'success', 'fa-solid fa-cloud-arrow-down');
+                        } else {
+                            this.notify('Tidak ditemukan file backup di Google Cloud.', 'warning');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        this.notify('Gagal restore dari Google Cloud: ' + e.message, 'error');
+                    } finally {
+                        this.isCloudLoading = false;
+                    }
+                },
+
+                getCpmiTotalExpense(cpmiName) {
+                    if (!cpmiName) return 0;
+                    let total = 0;
+                    this.keuanganCabang.forEach(item => {
+                        if (item.cpmiName && item.cpmiName.toLowerCase() === cpmiName.toLowerCase()) {
+                            total += (Number(item.dp1) || 0) + (Number(item.dp2) || 0) + (Number(item.pelunasan) || 0) + (Number(item.kasbon) || 0);
+                        }
+                    });
+                    this.medikalList.forEach(m => {
+                        if (m.cpmiName && m.cpmiName.toLowerCase() === cpmiName.toLowerCase()) {
+                            total += (Number(m.price) || 0);
+                        }
+                    });
+                    return total;
+                },
+
+                getTotalMedikalProfit() {
+                    return this.medikalList.reduce((acc, m) => {
+                        return acc + ((Number(m.price) || 0) - (Number(m.clinicPrice) || 0));
+                    }, 0);
+                },
+
+                getTotalClinicPrice() {
+                    return this.medikalList.reduce((acc, m) => {
+                        return acc + (Number(m.clinicPrice) || 0);
+                    }, 0);
+                },
+
+                getTotalCabangExpensePlusClinic() {
+                    const totalCabang = this.keuanganCabang.reduce((acc, curr) => {
+                        return acc + (Number(curr.dp1) || 0) + (Number(curr.dp2) || 0) + (Number(curr.pelunasan) || 0) + (Number(curr.kasbon) || 0);
+                    }, 0);
+                    return totalCabang + this.getTotalClinicPrice();
+                },
+
+                getCabangTotalProfit() {
+                    const totalCabang = this.keuanganCabang.reduce((acc, curr) => {
+                        return acc + (Number(curr.dp1) || 0) + (Number(curr.dp2) || 0) + (Number(curr.pelunasan) || 0) + (Number(curr.kasbon) || 0);
+                    }, 0);
+                    return totalCabang + this.getTotalMedikalProfit();
+                },
+
+                getFilteredMedikalList() {
+                    const q = this.searchMedikal.toLowerCase();
+                    return this.medikalList.filter(m => m.cpmiName.toLowerCase().includes(q) || m.clinicName.toLowerCase().includes(q));
+                },
+
+                openAddMedikalModal() {
+                    this.isEditingMedikal = false;
+                    this.editingMedikalId = null;
+                    this.formMedikal = {
+                        cpmiName: '',
+                        clinicName: '',
+                        checkDate: new Date().toISOString().split('T')[0],
+                        price: 750000,
+                        clinicPrice: 500000,
+                        status: 'FIT / Lolos',
+                        notes: 'Pemeriksaan standar lengkap'
+                    };
+                    this.showMedikalModal = true;
+                },
+
+                openEditMedikalModal(m) {
+                    this.isEditingMedikal = true;
+                    this.editingMedikalId = m.id;
+                    this.formMedikal = {
+                        cpmiName: m.cpmiName,
+                        clinicName: m.clinicName,
+                        checkDate: m.checkDate,
+                        price: m.price,
+                        clinicPrice: m.clinicPrice,
+                        status: m.status,
+                        notes: m.notes
+                    };
+                    this.showMedikalModal = true;
+                },
+
+                saveMedikalRecord() {
+                    if (this.isEditingMedikal) {
+                        const target = this.medikalList.find(m => m.id === this.editingMedikalId);
+                        if (target) {
+                            target.cpmiName = this.formMedikal.cpmiName;
+                            target.clinicName = this.formMedikal.clinicName;
+                            target.checkDate = this.formMedikal.checkDate;
+                            target.price = Number(this.formMedikal.price) || 0;
+                            target.clinicPrice = Number(this.formMedikal.clinicPrice) || 0;
+                            target.status = this.formMedikal.status;
+                            target.notes = this.formMedikal.notes;
+                        }
+                        this.notify('Data medikal berhasil diperbarui!', 'success', 'fa-solid fa-pen-to-square');
+                    } else {
+                        const newM = {
+                            id: 'M-' + Date.now(),
+                            cpmiName: this.formMedikal.cpmiName,
+                            clinicName: this.formMedikal.clinicName,
+                            checkDate: this.formMedikal.checkDate,
+                            price: Number(this.formMedikal.price) || 0,
+                            clinicPrice: Number(this.formMedikal.clinicPrice) || 0,
+                            status: this.formMedikal.status,
+                            notes: this.formMedikal.notes
+                        };
+                        this.medikalList.unshift(newM);
+                        this.notify('Data medikal baru berhasil ditambahkan!', 'success', 'fa-solid fa-notes-medical');
+                    }
+                    this.showMedikalModal = false;
+                },
+
+                deleteMedikalRecord(id) {
+                    this.medikalList = this.medikalList.filter(m => m.id !== id);
+                    this.notify('Data medikal berhasil dihapus.', 'warning', 'fa-solid fa-trash-can');
+                },
+
+                printMedikalRecord(m) {
+                    this.cetakReportType = 'medikal';
+                    this.cetakSearchQuery = m.cpmiName;
+                    this.activeTab = 'menu-cetak';
+                    setTimeout(() => {
+                        window.print();
+                    }, 300);
+                },
+
+                getFilteredP3miList() {
+                    const q = this.searchP3mi.toLowerCase();
+                    return this.p3miList.filter(p => p.name.toLowerCase().includes(q) || (p.contactPerson && p.contactPerson.toLowerCase().includes(q)));
+                },
+
+                openAddP3miModal() {
+                    this.isEditingP3mi = false;
+                    this.editingP3miId = null;
+                    this.formP3mi = {
+                        name: '', contactPerson: '', phone: '', destinationCountry: '', address: ''
+                    };
+                    this.showP3miModal = true;
+                },
+
+                openEditP3miModal(p) {
+                    this.isEditingP3mi = true;
+                    this.editingP3miId = p.id;
+                    this.formP3mi = {
+                        name: p.name,
+                        contactPerson: p.contactPerson,
+                        phone: p.phone,
+                        destinationCountry: p.destinationCountry,
+                        address: p.address
+                    };
+                    this.showP3miModal = true;
+                },
+
+                saveP3miRecord() {
+                    if (this.isEditingP3mi) {
+                        const target = this.p3miList.find(p => p.id === this.editingP3miId);
+                        if (target) {
+                            target.name = this.formP3mi.name;
+                            target.contactPerson = this.formP3mi.contactPerson;
+                            target.phone = this.formP3mi.phone;
+                            target.destinationCountry = this.formP3mi.destinationCountry;
+                            target.address = this.formP3mi.address;
+                        }
+                        this.notify('Data P3MI berhasil diperbarui!', 'success', 'fa-solid fa-pen-to-square');
+                    } else {
+                        const newId = 'P3MI-' + Date.now();
+                        const codeNum = String(this.p3miList.length + 1).padStart(3, '0');
+                        const newP = {
+                            id: newId,
+                            code: `P3MI-${codeNum}`,
+                            name: this.formP3mi.name,
+                            contactPerson: this.formP3mi.contactPerson,
+                            phone: this.formP3mi.phone,
+                            destinationCountry: this.formP3mi.destinationCountry,
+                            address: this.formP3mi.address
+                        };
+                        this.p3miList.push(newP);
+                        this.notify(`P3MI ${newP.name} berhasil ditambahkan!`, 'success');
+                    }
+                    this.showP3miModal = false;
+                },
+
+                deleteP3mi(id) {
+                    this.p3miList = this.p3miList.filter(p => p.id !== id);
+                    this.notify('Data P3MI berhasil dihapus.', 'warning', 'fa-solid fa-trash-can');
+                },
+
+                getSearchedCpmiList() {
+                    return this.cpmiList.filter(c => {
+                        const query = this.searchCpmi.toLowerCase();
+                        const matchesSearch = c.name.toLowerCase().includes(query) ||
+                                              c.code.toLowerCase().includes(query);
+                        const matchesStatus = this.filterStatus === 'ALL' || c.status === this.filterStatus;
+                        const matchesDest = this.filterDestination === 'ALL' || c.destination.toLowerCase().includes(this.filterDestination.toLowerCase());
+                        
+                        return matchesSearch && matchesStatus && matchesDest;
+                    });
+                },
+
+                getCpmiByStage(stage) {
+                    return this.cpmiList.filter(c => c.status === stage);
+                },
+
+                getProsesSpreadsheetData() {
+                    return this.cpmiList.filter(c => {
+                        const q = this.searchProses.toLowerCase();
+                        const matchesSearch = c.name.toLowerCase().includes(q) ||
+                                              c.code.toLowerCase().includes(q) ||
+                                              c.destination.toLowerCase().includes(q);
+                        const matchesStage = this.filterProsesStage === 'ALL' || c.status === this.filterProsesStage;
+                        return matchesSearch && matchesStage;
+                    });
+                },
+
+                updateDirectStatus(item, newStatus) {
+                    const target = this.cpmiList.find(c => c.id === item.id);
+                    if (target) {
+                        const oldStatus = target.status;
+                        target.status = newStatus;
+                        this.notify(`Status ${target.name} diubah dari '${oldStatus}' ke '${newStatus}'`, 'success', 'fa-solid fa-square-check');
+                    }
+                },
+
+                openEditCpmiModal(item) {
+                    this.editingCpmiId = item.id;
+                    this.formEditCpmi = {
+                        name: item.name,
+                        gender: item.gender,
+                        dob: item.dob || '',
+                        phone: item.phone,
+                        tb: item.tb,
+                        bb: item.bb,
+                        shelterDate: item.shelterDate,
+                        address: item.address,
+                        destination: item.destination,
+                        jobRole: item.jobRole,
+                        sponsorNameManual: item.sponsorNameManual
+                    };
+                    this.showEditCpmiModal = true;
+                },
+
+                saveEditedCpmi() {
+                    const target = this.cpmiList.find(c => c.id === this.editingCpmiId);
+                    if (target) {
+                        target.name = this.formEditCpmi.name;
+                        target.gender = this.formEditCpmi.gender;
+                        target.dob = this.formEditCpmi.dob;
+                        target.phone = this.formEditCpmi.phone;
+                        target.tb = this.formEditCpmi.tb;
+                        target.bb = this.formEditCpmi.bb;
+                        target.shelterDate = this.formEditCpmi.shelterDate;
+                        target.address = this.formEditCpmi.address;
+                        target.destination = this.formEditCpmi.destination;
+                        target.jobRole = this.formEditCpmi.jobRole;
+                        target.sponsorNameManual = this.formEditCpmi.sponsorNameManual;
+                        this.notify(`Data CPMI ${target.name} berhasil diperbarui!`, 'success', 'fa-solid fa-pen-to-square');
+                    }
+                    this.showEditCpmiModal = false;
+                },
+
+                exportProcessToCSV() {
+                    const data = this.getProsesSpreadsheetData();
+                    if (data.length === 0) {
+                        this.notify('Tidak ada data untuk diexport!', 'warning', 'fa-solid fa-triangle-exclamation');
+                        return;
+                    }
+
+                    let csvContent = "data:text/csv;charset=utf-8,";
+                    csvContent += "No,Kode CPMI,Nama Lengkap,Tgl Lahir,Negara Tujuan,TB & BB,Jabatan,Sponsor,Tgl Tampung,Status Tahap,Tanggal Daftar\n";
+
+                    data.forEach((item, index) => {
+                        const row = [
+                            index + 1,
+                            `"${item.code}"`,
+                            `"${item.name}"`,
+                            `"${item.dob || '-'}"`,
+                            `"${item.destination}"`,
+                            `"${(item.tb || '-') + ' / ' + (item.bb || '-')}"`,
+                            `"${item.jobRole}"`,
+                            `"${item.sponsorNameManual || 'Direct'}"`,
+                            `"${item.shelterDate || '-'}"`,
+                            `"${item.status}"`,
+                            `"${item.regDate}"`
+                        ].join(",");
+                        csvContent += row + "\n";
+                    });
+
+                    const encodedUri = encodeURI(csvContent);
+                    const link = document.createElement("a");
+                    link.setAttribute("href", encodedUri);
+                    link.setAttribute("download", `Data_Proses_CPMI_${new Date().toISOString().split('T')[0]}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    this.notify('Data spreadsheet berhasil diexport ke CSV / Excel!', 'success', 'fa-solid fa-file-csv');
+                },
+
+                addSampleProcessData() {
+                    const sampleNames = ['Rian Hidayat', 'Siti Rahma', 'Joko Susilo', 'Mega Wati'];
+                    const randName = sampleNames[Math.floor(Math.random() * sampleNames.length)] + ' ' + Math.floor(Math.random() * 90 + 10);
+                    const newId = Date.now();
+                    const codeNum = String(this.cpmiList.length + 1).padStart(3, '0');
+
+                    const newCpmi = {
+                        id: newId,
+                        code: `CPMI-2026-${codeNum}`,
+                        name: randName,
+                        gender: 'Laki-Laki',
+                        dob: '1998-01-01',
+                        phone: '0812' + Math.floor(Math.random() * 9000000 + 1000000),
+                        tb: '168 cm',
+                        bb: '58 kg',
+                        shelterDate: new Date().toISOString().split('T')[0],
+                        address: 'Indramayu, Jawa Barat',
+                        destination: 'Taiwan',
+                        jobRole: 'Pabrik',
+                        sponsorNameManual: 'H. Ahmad Safei',
+                        status: 'Cabang',
+                        regDate: new Date().toISOString().split('T')[0]
+                    };
+
+                    this.cpmiList.unshift(newCpmi);
+                    this.notify(`Berhasil menambahkan sample data ${randName}!`, 'success');
+                },
+
+                getStageCount(stageName) {
+                    return this.cpmiList.filter(c => c.status === stageName).length;
+                },
+
+                getSponsorName(sponsorId) {
+                    if (!sponsorId) return 'Direct / Tanpa PL';
+                    const s = this.sponsorList.find(x => x.id === sponsorId);
+                    return s ? s.name : 'Direct';
+                },
+
+                getSponsorCandidateCount(sponsorId) {
+                    return this.cpmiList.filter(c => c.sponsorNameManual && sponsorId && c.sponsorNameManual.toLowerCase().includes(this.sponsorList.find(s => s.id === sponsorId)?.name.toLowerCase() || '')).length;
+                },
+
+                getStatusBadgeClass(status) {
+                    switch (status) {
+                        case 'Daftar': return 'bg-slate-100 text-slate-800 border border-slate-300';
+                        case 'Rumah': return 'bg-amber-100 text-amber-800 border border-amber-300';
+                        case 'Cabang': return 'bg-blue-100 text-blue-800 border border-blue-300';
+                        case 'Medikal': return 'bg-teal-100 text-teal-800 border border-teal-300';
+                        case 'Pusat': return 'bg-indigo-100 text-indigo-800 border border-indigo-300';
+                        default: return 'bg-slate-100 text-slate-700';
+                    }
+                },
+
+                formatRupiah(num) {
+                    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(num || 0);
+                },
+
+                getPusatTotalIncome() {
+                    return this.keuanganPusat.reduce((acc, curr) => {
+                        const sumTx = (Number(curr.dp1) || 0) + (Number(curr.dp2) || 0) + (Number(curr.pelunasan) || 0) + (Number(curr.hargamcu) || 0);
+                        return acc + sumTx;
+                    }, 0);
+                },
+
+                getSpreadsheetKeuanganCabang() {
+                    const q = this.searchKeuanganCabang.toLowerCase();
+                    return this.keuanganCabang.filter(cb => {
+                        return (cb.cpmiName && cb.cpmiName.toLowerCase().includes(q)) ||
+                               cb.category.toLowerCase().includes(q) ||
+                               cb.description.toLowerCase().includes(q);
+                    });
+                },
+
+                submitCpmiRegistration() {
+                    const newId = Date.now();
+                    const codeNum = String(this.cpmiList.length + 1).padStart(3, '0');
+
+                    const manualSponsor = (this.formCpmi.sponsorNameManual || '').trim();
+                    if (manualSponsor && manualSponsor.toLowerCase() !== 'direct') {
+                        const foundSponsor = this.sponsorList.find(s => s.name.toLowerCase() === manualSponsor.toLowerCase());
+                        if (!foundSponsor) {
+                            const newSId = 'S-' + Date.now();
+                            const sCodeNum = String(this.sponsorList.length + 1).padStart(3, '0');
+                            this.sponsorList.push({
+                                id: newSId,
+                                code: `PL-${sCodeNum}`,
+                                name: manualSponsor,
+                                phone: '-',
+                                region: 'Wilayah Baru'
+                            });
+                            this.notify(`Sponsor baru '${manualSponsor}' otomatis ditambahkan ke Data Sponsor (PL)!`, 'info', 'fa-solid fa-handshake');
+                        }
+                    }
+
+                    const newCpmi = {
+                        id: newId,
+                        code: `CPMI-2026-${codeNum}`,
+                        name: this.formCpmi.name,
+                        gender: this.formCpmi.gender,
+                        dob: this.formCpmi.dob,
+                        phone: this.formCpmi.phone,
+                        tb: this.formCpmi.tb || '-',
+                        bb: this.formCpmi.bb || '-',
+                        shelterDate: this.formCpmi.shelterDate,
+                        address: this.formCpmi.address,
+                        destination: this.formCpmi.destination,
+                        jobRole: this.formCpmi.jobRole || 'Umum',
+                        sponsorNameManual: manualSponsor || 'Direct',
+                        status: this.formCpmi.status || 'Daftar',
+                        regDate: this.formCpmi.regDate
+                    };
+
+                    this.cpmiList.unshift(newCpmi);
+
+                    this.formCpmi = {
+                        name: '', gender: 'Laki-Laki', dob: '2000-01-01', phone: '', tb: '165 cm', bb: '55 kg', shelterDate: new Date().toISOString().split('T')[0], address: '',
+                        destination: '', jobRole: '', sponsorNameManual: '', status: 'Daftar', regFee: 0, regDate: new Date().toISOString().split('T')[0]
+                    };
+
+                    this.notify(`Berhasil menambahkan CPMI ${newCpmi.name} ke tahap '${newCpmi.status}'!`, 'success', 'fa-solid fa-user-check');
+                    this.activeTab = 'cpmi';
+                },
+
+                openCpmiDetail(cpmi) {
+                    this.activeCpmi = cpmi;
+                    this.showCpmiModal = true;
+                },
+
+                deleteCpmi(id) {
+                    this.cpmiList = this.cpmiList.filter(c => c.id !== id);
+                    this.notify('Data CPMI berhasil dihapus.', 'warning', 'fa-solid fa-trash-can');
+                },
+
+                openAddSponsorModal() {
+                    this.isEditingSponsor = false;
+                    this.editingSponsorId = null;
+                    this.formSponsor = { name: '', phone: '', region: '' };
+                    this.showAddSponsorModal = true;
+                },
+
+                openEditSponsorModal(s) {
+                    this.isEditingSponsor = true;
+                    this.editingSponsorId = s.id;
+                    this.formSponsor = {
+                        name: s.name,
+                        phone: s.phone,
+                        region: s.region
+                    };
+                    this.showAddSponsorModal = true;
+                },
+
+                saveSponsorRecord() {
+                    if (this.isEditingSponsor) {
+                        const target = this.sponsorList.find(s => s.id === this.editingSponsorId);
+                        if (target) {
+                            target.name = this.formSponsor.name;
+                            target.phone = this.formSponsor.phone;
+                            target.region = this.formSponsor.region;
+                        }
+                        this.notify('Data sponsor berhasil diperbarui!', 'success', 'fa-solid fa-pen-to-square');
+                    } else {
+                        const newId = 'S-' + Date.now();
+                        const codeNum = String(this.sponsorList.length + 1).padStart(3, '0');
+                        const newS = {
+                            id: newId,
+                            code: `PL-${codeNum}`,
+                            name: this.formSponsor.name,
+                            phone: this.formSponsor.phone,
+                            region: this.formSponsor.region
+                        };
+                        this.sponsorList.push(newS);
+                        this.notify(`Sponsor ${newS.name} berhasil ditambahkan!`, 'success');
+                    }
+                    this.showAddSponsorModal = false;
+                },
+
+                deleteSponsor(id) {
+                    this.sponsorList = this.sponsorList.filter(s => s.id !== id);
+                    this.notify('Data sponsor berhasil dihapus.', 'warning', 'fa-solid fa-trash-can');
+                },
+
+                openAddTransactionModal(scope) {
+                    this.txTargetScope = scope;
+                    this.isEditingPusat = false;
+                    this.editingPusatId = null;
+                    this.isEditingCabang = false;
+                    this.editingCabangId = null;
+                    this.formTx = {
+                        type: 'PEMASUKAN',
+                        cpmiName: '',
+                        dp1: 0, dp1Date: '',
+                        dp2: 0, dp2Date: '',
+                        pelunasan: 0, pelunasanDate: '',
+                        hargamcu: 0,
+                        kasbon: 0, kasbonDate: '',
+                        category: '',
+                        description: '',
+                        amount: 0,
+                        date: new Date().toISOString().split('T')[0]
+                    };
+                    this.showAddTxModal = true;
+                },
+
+                openEditPusatTransaction(t) {
+                    this.txTargetScope = 'pusat';
+                    this.isEditingPusat = true;
+                    this.editingPusatId = t.id;
+                    this.isEditingCabang = false;
+                    this.editingCabangId = null;
+                    this.formTx = {
+                        type: 'PEMASUKAN',
+                        cpmiName: t.cpmiName || '',
+                        dp1: Number(t.dp1) || 0, dp1Date: '',
+                        dp2: Number(t.dp2) || 0, dp2Date: '',
+                        pelunasan: Number(t.pelunasan) || 0, pelunasanDate: '',
+                        hargamcu: Number(t.hargamcu) || 0,
+                        kasbon: 0, kasbonDate: '',
+                        category: t.category || '',
+                        description: t.description || '',
+                        amount: (Number(t.dp1)||0) + (Number(t.dp2)||0) + (Number(t.pelunasan)||0) + (Number(t.hargamcu)||0),
+                        date: t.date || new Date().toISOString().split('T')[0]
+                    };
+                    this.showAddTxModal = true;
+                },
+
+                openEditCabangTransaction(cb) {
+                    this.txTargetScope = 'cabang';
+                    this.isEditingCabang = true;
+                    this.editingCabangId = cb.id;
+                    this.isEditingPusat = false;
+                    this.editingPusatId = null;
+                    this.formTx = {
+                        type: 'PEMASUKAN',
+                        cpmiName: cb.cpmiName || '',
+                        dp1: Number(cb.dp1) || 0, dp1Date: cb.dp1Date || '',
+                        dp2: Number(cb.dp2) || 0, dp2Date: cb.dp2Date || '',
+                        pelunasan: Number(cb.pelunasan) || 0, pelunasanDate: cb.pelunasanDate || '',
+                        hargamcu: 0,
+                        kasbon: Number(cb.kasbon) || 0, kasbonDate: cb.kasbonDate || '',
+                        category: cb.category || '',
+                        description: cb.description || '',
+                        amount: (Number(cb.dp1)||0) + (Number(cb.dp2)||0) + (Number(cb.pelunasan)||0) + (Number(cb.kasbon)||0),
+                        date: cb.date || new Date().toISOString().split('T')[0]
+                    };
+                    this.showAddTxModal = true;
+                },
+
+                deletePusatTransaction(id) {
+                    this.keuanganPusat = this.keuanganPusat.filter(t => t.id !== id);
+                    this.notify('Transaksi keuangan berhasil dihapus.', 'warning', 'fa-solid fa-trash-can');
+                },
+
+                deleteCabangTransaction(id) {
+                    this.keuanganCabang = this.keuanganCabang.filter(cb => cb.id !== id);
+                    this.notify('Transaksi keuangan sponsor dan CPMI berhasil dihapus.', 'warning', 'fa-solid fa-trash-can');
+                },
+
+                printPusatTransaction(t) {
+                    this.cetakReportType = 'pusat';
+                    this.cetakSearchQuery = t.cpmiName || t.description;
+                    this.activeTab = 'menu-cetak';
+                    setTimeout(() => {
+                        window.print();
+                    }, 300);
+                },
+
+                printCabangTransaction(cb) {
+                    this.cetakReportType = 'cabang';
+                    this.cetakSearchQuery = cb.cpmiName || cb.description || cb.category;
+                    this.activeTab = 'menu-cetak';
+                    setTimeout(() => {
+                        window.print();
+                    }, 300);
+                },
+
+                saveFinancialTx() {
+                    const dp1Val = Number(this.formTx.dp1) || 0;
+                    const dp2Val = Number(this.formTx.dp2) || 0;
+                    const pelunasanVal = Number(this.formTx.pelunasan) || 0;
+                    const hargamcuVal = Number(this.formTx.hargamcu) || 0;
+                    const kasbonVal = Number(this.formTx.kasbon) || 0;
+                    const calculatedTotal = dp1Val + dp2Val + pelunasanVal + hargamcuVal + kasbonVal;
+
+                    if (this.txTargetScope === 'pusat') {
+                        if (this.isEditingPusat) {
+                            const target = this.keuanganPusat.find(t => t.id === this.editingPusatId);
+                            if (target) {
+                                target.date = this.formTx.date;
+                                target.cpmiName = this.formTx.cpmiName;
+                                target.dp1 = dp1Val;
+                                target.dp2 = dp2Val;
+                                target.pelunasan = pelunasanVal;
+                                target.hargamcu = hargamcuVal;
+                                target.description = this.formTx.description;
+                            }
+                            this.notify('Transaksi keuangan berhasil diperbarui!', 'success', 'fa-solid fa-pen-to-square');
+                        } else {
+                            const txData = {
+                                id: 'TP-' + Date.now(),
+                                date: this.formTx.date,
+                                cpmiName: this.formTx.cpmiName,
+                                dp1: dp1Val,
+                                dp2: dp2Val,
+                                pelunasan: pelunasanVal,
+                                hargamcu: hargamcuVal,
+                                description: this.formTx.description
+                            };
+                            this.keuanganPusat.unshift(txData);
+                            this.notify('Transaksi keuangan berhasil dicatat!', 'success', 'fa-solid fa-receipt');
+                        }
+                    } else {
+                        if (this.isEditingCabang) {
+                            const target = this.keuanganCabang.find(cb => cb.id === this.editingCabangId);
+                            if (target) {
+                                target.date = this.formTx.date;
+                                target.cpmiName = this.formTx.cpmiName;
+                                target.dp1 = dp1Val;
+                                target.dp1Date = this.formTx.dp1Date;
+                                target.dp2 = dp2Val;
+                                target.dp2Date = this.formTx.dp2Date;
+                                target.pelunasan = pelunasanVal;
+                                target.pelunasanDate = this.formTx.pelunasanDate;
+                                target.kasbon = kasbonVal;
+                                target.kasbonDate = this.formTx.kasbonDate;
+                                target.category = this.formTx.category;
+                                target.description = this.formTx.description;
+                            }
+                            this.notify('Transaksi sponsor dan CPMI berhasil diperbarui!', 'success', 'fa-solid fa-pen-to-square');
+                        } else {
+                            const txData = {
+                                id: 'TC-' + Date.now(),
+                                date: this.formTx.date,
+                                cpmiName: this.formTx.cpmiName,
+                                dp1: dp1Val,
+                                dp1Date: this.formTx.dp1Date,
+                                dp2: dp2Val,
+                                dp2Date: this.formTx.dp2Date,
+                                pelunasan: pelunasanVal,
+                                pelunasanDate: this.formTx.pelunasanDate,
+                                kasbon: kasbonVal,
+                                kasbonDate: this.formTx.kasbonDate,
+                                category: this.formTx.category,
+                                description: this.formTx.description
+                            };
+                            this.keuanganCabang.unshift(txData);
+                            this.notify('Transaksi keuangan sponsor dan CPMI berhasil dicatat!', 'success', 'fa-solid fa-receipt');
+                        }
+                    }
+
+                    this.showAddTxModal = false;
+                },
+
+                getCetakTitle() {
+                    switch(this.cetakReportType) {
+                        case 'cpmi': return 'Laporan Data CPMI';
+                        case 'proses': return 'Laporan Data Proses';
+                        case 'medikal': return 'Laporan Medikal & MCU';
+                        case 'keuntungan': return 'Laporan Keuntungan (Profit)';
+                        case 'sponsor': return 'Laporan Data Sponsor';
+                        case 'p3mi': return 'Laporan Daftar P3MI';
+                        case 'pusat': return 'Laporan Keuangan';
+                        case 'cabang': return 'Laporan Keuangan Sponsor';
+                        case 'cpmi_database': return 'Laporan Data CPMI (Database Induk)';
+                        default: return 'Laporan Resmi Perusahaan';
+                    }
+                },
+
+                getFilteredCetakCpmi() {
+                    const q = this.cetakSearchQuery.toLowerCase();
+                    return this.cpmiList.filter(c => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q) || c.destination.toLowerCase().includes(q));
+                },
+
+                getFilteredCetakProses() {
+                    const q = this.cetakSearchQuery.toLowerCase();
+                    return this.cpmiList.filter(c => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q) || c.status.toLowerCase().includes(q));
+                },
+
+                getFilteredCetakMedikal() {
+                    const q = this.cetakSearchQuery.toLowerCase();
+                    return this.medikalList.filter(m => m.cpmiName.toLowerCase().includes(q) || m.clinicName.toLowerCase().includes(q));
+                },
+
+                getFilteredCetakSponsor() {
+                    const q = this.cetakSearchQuery.toLowerCase();
+                    return this.sponsorList.filter(s => s.name.toLowerCase().includes(q) || s.region.toLowerCase().includes(q));
+                },
+
+                getFilteredCetakP3mi() {
+                    const q = this.cetakSearchQuery.toLowerCase();
+                    return this.p3miList.filter(p => p.name.toLowerCase().includes(q) || (p.contactPerson && p.contactPerson.toLowerCase().includes(q)));
+                },
+
+                getFilteredCetakPusat() {
+                    const q = this.cetakSearchQuery.toLowerCase();
+                    return this.keuanganPusat.filter(t => (t.cpmiName && t.cpmiName.toLowerCase().includes(q)) || (t.description && t.description.toLowerCase().includes(q)));
+                },
+
+                getFilteredCetakCabang() {
+                    const q = this.cetakSearchQuery.toLowerCase();
+                    return this.keuanganCabang.filter(cb => {
+                        const matchesSearch = (cb.cpmiName && cb.cpmiName.toLowerCase().includes(q)) || cb.category.toLowerCase().includes(q) || cb.description.toLowerCase().includes(q);
+                        return matchesSearch;
+                    });
+                },
+
+                printCpmiSingle(item) {
+                    this.cetakReportType = 'cpmi';
+                    this.cetakSearchQuery = item.name;
+                    this.activeTab = 'menu-cetak';
+                },
+
+                triggerBrowserPrint() {
+                    window.print();
+                }
+            }
+        }
+    </script>
+    <!-- Alpine.js for Reactivity (loaded AFTER appData definition) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 100%;
+            margin-left: auto;
+            margin-right: auto;
+            height: 280px;
+            max-height: 320px;
+        }
+        @media print {
+            body { background: white !important; color: black !important; }
+            aside, header, button, .no-print { display: none !important; }
+            main { padding: 0 !important; margin: 0 !important; background: white !important; }
+            .print-area { display: block !important; width: 100% !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col" x-data="appData()" x-init="initApp()">
+
+    <!-- Toast Notifications -->
+    <div class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none" x-cloak>
+        <template x-for="toast in toasts" :key="toast.id">
+            <div class="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg text-white text-sm font-medium transition-all transform duration-300"
+                 :class="{
+                    'bg-emerald-600': toast.type === 'success',
+                    'bg-rose-600': toast.type === 'error',
+                    'bg-amber-600': toast.type === 'warning',
+                    'bg-sky-600': toast.type === 'info'
+                 }">
+                <i :class="toast.icon" class="text-base"></i>
+                <span x-text="toast.message"></span>
+            </div>
+        </template>
+    </div>
+
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar Navigation -->
+        <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col flex-shrink-0 transition-all duration-300 z-30"
+               :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'">
+            <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-md">
+                        PB
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-white text-xs leading-tight">LPK Puji Bela Sejahtera</h1>
+                        <p class="text-[10px] text-slate-400">@kamseno</p>
+                    </div>
+                </div>
+                <button @click="sidebarOpen = false" class="md:hidden text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <nav class="flex-1 overflow-y-auto p-3 space-y-1">
+                <div class="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Utama</div>
+                
+                <button @click="activeTab = 'dashboard'" :class="activeTab === 'dashboard' ? 'bg-sky-600 text-white font-medium' : 'hover:bg-slate-800 text-slate-300'" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors">
+                    <i class="fa-solid fa-chart-pie w-5 text-center text-sky-400"></i>
+                    <span>Dashboard KPI</span>
+                </button>
+
+                <div class="px-3 py-2 mt-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Manajemen CPMI</div>
+                
+                <button @click="activeTab = 'pendaftaran'" :class="activeTab === 'pendaftaran' ? 'bg-sky-600 text-white font-medium' : 'hover:bg-slate-800 text-slate-300'" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors">
+                    <i class="fa-solid fa-user-plus w-5 text-center text-emerald-400"></i>
+                    <span>Pendaftaran Baru</span>
+                </button>
+
+                <button @click="activeTab = 'cpmi'" :class="activeTab === 'cpmi' ? 'bg-sky-600 text-white font-medium' : 'hover:bg-slate-800 text-slate-300'" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors">
+                    <i class="fa-solid fa-users-gear w-5 text-center text-indigo-400"></i>
+                    <span>Data CPMI (Spreadsheet)</span>
+                    <span class="ml-auto bg-slate-800 text-slate-300 text-xs px-2 py-0.5 rounded-full" x-text="cpmiList.length"></span>
+                </button>
+
+                <button @click="activeTab = 'proses'" :class="activeTab === 'proses' ? 'bg-sky-600 text-white font-medium' : 'hover:bg-slate-800 text-slate-300'" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors">
+                    <i class="fa-solid fa-list-check w-5 text-center text-amber-400"></i>
+                    <span>Data Proses</span>
+                    <span class="ml-auto bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full font-bold" x-text="cpmiList.length"></span>
+                </button>
+
+                <button @click="activeTab = 'medikal'" :class="activeTab === 'medikal' ? 'bg-sky-600 text-white font-medium' : 'hover:bg-slate-800 text-slate-300'" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors">
+                    <i class="fa-solid fa-notes-medical w-5 text-center text-teal-400"></i>
+                    <span>Medikal (MCU)</span>
+                </button>
+
+                <button @click="activeTab = 'sponsor'" :class="activeTab === 'sponsor' ? 'bg-sky-600 text-white font-medium' : 'hover:bg-slate-800 text-slate-300'" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors">
+                    <i class="fa-solid fa-handshake w-5 text-center text-purple-400"></i>
+                    <span>Data Sponsor (PL)</span>
+                </button>
+
+                <button @click="activeTab = 'p3mi'" :class="activeTab === 'p3mi' ? 'bg-sky-600 text-white font-medium' : 'hover:bg-slate-800 text-slate-300'" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors">
+                    <i class="fa-solid fa-building w-5 text-center text-rose-400"></i>
+                    <span>Daftar P3MI</span>
+                </button>
+
+                <div class="px-3 py-2 mt-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Akuntansi & Finansial</div>
+
+                <button @click="activeTab = 'keuangan-pusat'" :class="activeTab === 'keuangan-pusat' ? 'bg-sky-600 text-white font-medium' : 'hover:bg-slate-800 text-slate-300'" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors">
+                    <i class="fa-solid fa-building-columns w-5 text-center text-teal-400"></i>
+                    <span>Keuangan</span>
+                </button>
+
+                <button @click="activeTab = 'keuangan-cabang'" :class="activeTab === 'keuangan-cabang' ? 'bg-sky-600 text-white font-medium' : 'hover:bg-slate-800 text-slate-300'" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors">
+                    <i class="fa-solid fa-code-branch w-5 text-center text-orange-400"></i>
+                    <span>Keuangan Sponsor dan CPMI</span>
+                </button>
+
+                <div class="px-3 py-2 mt-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Laporan & Cloud</div>
+
+                <button @click="activeTab = 'menu-cetak'" :class="activeTab === 'menu-cetak' ? 'bg-sky-600 text-white font-medium' : 'hover:bg-slate-800 text-slate-300'" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors">
+                    <i class="fa-solid fa-print w-5 text-center text-rose-400"></i>
+                    <span>Menu Cetak (Reports)</span>
+                </button>
+
+                <button @click="activeTab = 'cloud-backup'" :class="activeTab === 'cloud-backup' ? 'bg-sky-600 text-white font-medium' : 'hover:bg-slate-800 text-slate-300'" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors">
+                    <i class="fa-solid fa-cloud-arrow-up w-5 text-center text-sky-400"></i>
+                    <span>Backup Google Cloud</span>
+                </button>
+            </nav>
+
+            <div class="p-3 border-t border-slate-800 bg-slate-950/50 flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-white text-xs">
+                    KS
+                </div>
+                <div class="flex-1 overflow-hidden">
+                    <p class="text-xs font-medium text-white truncate">Administrator HQ</p>
+                    <p class="text-[10px] text-slate-400 truncate">@kamseno</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 md:px-6 flex-shrink-0 z-20">
+                <div class="flex items-center gap-3">
+                    <button @click="sidebarOpen = !sidebarOpen" class="md:hidden text-slate-600 hover:text-slate-900 focus:outline-none">
+                        <i class="fa-solid fa-bars text-xl"></i>
+                    </button>
+                    <h2 class="text-lg font-bold text-slate-800" x-text="tabTitles[activeTab]">Dashboard</h2>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <button @click="activeTab = 'cloud-backup'" class="bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5" title="Google Cloud Backup">
+                        <i class="fa-solid fa-cloud"></i>
+                        <span class="hidden sm:inline">Google Cloud</span>
+                    </button>
+                    <button @click="resetToDefaultData()" class="text-slate-500 hover:text-rose-600 px-2 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5" title="Reset Demo Data">
+                        <i class="fa-solid fa-rotate-right"></i>
+                        <span class="hidden sm:inline">Reset Demo Data</span>
+                    </button>
+                </div>
+            </header>
+
+            <main class="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-100">
+
+                <!-- DASHBOARD TAB -->
+                <div x-show="activeTab === 'dashboard'" x-transition class="space-y-6">
+                    <p class="text-xs text-slate-600 bg-white p-3 rounded-lg border border-slate-200">
+                        <strong>Overview Operasional:</strong> Modul dashboard menyajikan visualisasi data posisi calon pekerja migran, grafik tren pendaftaran, daftar sponsor teraktif, serta rangkuman <strong>Keuntungan LPK</strong> secara real-time.
+                    </p>
+
+                    <!-- LPK Profit Widget Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                        <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p class="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider">Total Pemasukan Keuangan</p>
+                                <h3 class="text-xl font-black text-emerald-600 mt-0.5" x-text="formatRupiah(getPusatTotalIncome())"></h3>
+                                <p class="text-[10px] text-slate-400 mt-0.5">Kas Utama Keuangan</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-wallet"></i>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p class="text-[11px] font-semibold text-rose-700 uppercase tracking-wider">Total Pengeluaran Cabang</p>
+                                <h3 class="text-xl font-black text-rose-600 mt-0.5" x-text="formatRupiah(getTotalCabangExpensePlusClinic())"></h3>
+                                <p class="text-[10px] text-slate-400 mt-0.5">Sponsor & CPMI + Harga Klinik</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-arrow-trend-down"></i>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p class="text-[11px] font-semibold text-teal-700 uppercase tracking-wider">Keuntungan Medikal</p>
+                                <h3 class="text-xl font-black text-teal-600 mt-0.5" x-text="formatRupiah(getTotalMedikalProfit())"></h3>
+                                <p class="text-[10px] text-slate-400 mt-0.5">Selisih Harga & Klinik</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-chart-line"></i>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p class="text-[11px] font-semibold text-orange-700 uppercase tracking-wider">Keuntungan Cabang</p>
+                                <h3 class="text-xl font-black text-orange-600 mt-0.5" x-text="formatRupiah(getCabangTotalProfit())"></h3>
+                                <p class="text-[10px] text-slate-400 mt-0.5">Sponsor/CPMI + Medikal</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-coins"></i>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p class="text-[11px] font-semibold text-indigo-700 uppercase tracking-wider">Keuntungan LPK</p>
+                                <h3 class="text-xl font-black text-indigo-600 mt-0.5" x-text="formatRupiah(getPusatTotalIncome() - getTotalCabangExpensePlusClinic())"></h3>
+                                <p class="text-[10px] text-slate-400 mt-0.5">Pemasukan - Pengeluaran Cabang</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-building-columns"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dashboard Chart & Top Sponsor Grid -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm lg:col-span-2 flex flex-col">
+                            <div class="flex items-center justify-between mb-4">
+                                <h4 class="font-bold text-slate-800 text-base">Grafik Tren Pendaftaran CPMI</h4>
+                                <span class="text-xs bg-sky-50 text-sky-700 font-semibold px-2.5 py-1 rounded-lg" x-text="'Total Pendaftaran: ' + cpmiList.length + ' CPMI'"></span>
+                            </div>
+                            <div class="chart-container flex-1">
+                                <canvas id="cpmiRegistrationChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col">
+                            <h4 class="font-bold text-slate-800 text-base mb-4">Top Sponsor (PL) Aktif</h4>
+                            <div class="flex-1 divide-y divide-slate-100 overflow-y-auto max-h-64">
+                                <template x-for="s in sponsorList" :key="s.id">
+                                    <div class="py-2.5 flex items-center justify-between">
+                                        <div class="flex items-center gap-2.5">
+                                            <div class="w-8 h-8 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold" x-text="s.name.substring(0,2).toUpperCase()"></div>
+                                            <div>
+                                                <p class="text-xs font-bold text-slate-800" x-text="s.name"></p>
+                                                <p class="text-[10px] text-slate-400" x-text="s.region"></p>
+                                            </div>
+                                        </div>
+                                        <div class="text-right">
+                                            <span class="text-xs font-bold text-sky-600" x-text="getSponsorCandidateCount(s.id) + ' CPMI'"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PENDAFTARAN TAB -->
+                <div x-show="activeTab === 'pendaftaran'" x-transition class="max-w-4xl mx-auto space-y-6">
+                    <p class="text-xs text-slate-600 bg-white p-3 rounded-lg border border-slate-200">
+                        <strong>Form Registrasi CPMI:</strong> Gunakan formulir ini untuk meregistrasi calon pekerja migran baru. Nama sponsor yang diisi secara manual akan otomatis dimasukkan ke Data Sponsor (PL) jika belum terdaftar.
+                    </p>
+
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="bg-gradient-to-r from-sky-600 to-indigo-700 p-6 text-white">
+                            <h3 class="text-xl font-bold">Formulir Pendaftaran CPMI Baru</h3>
+                            <p class="text-sky-100 text-xs mt-1">Isi data lengkap calon pekerja migran untuk memulai tahapan proses pendaftaran.</p>
+                        </div>
+
+                        <form @submit.prevent="submitCpmiRegistration()" class="p-6 space-y-6">
+                            <div>
+                                <h4 class="text-xs font-bold text-sky-700 uppercase tracking-wider mb-3 pb-1 border-b border-slate-200">1. Data Pribadi CPMI</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div class="md:col-span-2">
+                                        <label class="block text-xs font-medium text-slate-700 mb-1">Nama Lengkap <span class="text-rose-500">*</span></label>
+                                        <input type="text" x-model="formCpmi.name" required class="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none" placeholder="Contoh: Budi Santoso">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-700 mb-1">Jenis Kelamin</label>
+                                        <select x-model="formCpmi.gender" class="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                                            <option value="Laki-Laki">Laki-Laki</option>
+                                            <option value="Perempuan">Perempuan</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-700 mb-1">Tanggal Lahir <span class="text-rose-500">*</span></label>
+                                        <input type="date" x-model="formCpmi.dob" required class="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-700 mb-1">No. Telepon / WhatsApp <span class="text-rose-500">*</span></label>
+                                        <input type="tel" x-model="formCpmi.phone" required class="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none" placeholder="081234567890">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-700 mb-1">Tinggi Badan (TB - cm)</label>
+                                        <input type="text" x-model="formCpmi.tb" class="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none" placeholder="165 cm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-700 mb-1">Berat Badan (BB - kg)</label>
+                                        <input type="text" x-model="formCpmi.bb" class="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none" placeholder="55 kg">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-700 mb-1">Tanggal Tampung (Shelter)</label>
+                                        <input type="date" x-model="formCpmi.shelterDate" class="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                                    </div>
+                                    <div class="md:col-span-3">
+                                        <label class="block text-xs font-medium text-slate-700 mb-1">Alamat Asal Lengkap</label>
+                                        <textarea x-model="formCpmi.address" rows="2" class="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none" placeholder="Dusun, Desa, Kecamatan, Kabupaten/Kota"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 class="text-xs font-bold text-sky-700 uppercase tracking-wider mb-3 pb-1 border-b border-slate-200">2. Penempatan & Sponsor</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-700 mb-1">Negara Tujuan <span class="text-rose-500">*</span></label>
+                                        <select x-model="formCpmi.destination" required class="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                                            <option value="">-- Pilih Negara --</option>
+                                            <option value="Taiwan">Taiwan</option>
+                                            <option value="Hong Kong">Hong Kong</option>
+                                            <option value="Jepang (SSW/TITP)">Jepang (SSW / Trainee)</option>
+                                            <option value="Singapura">Singapura</option>
+                                            <option value="Malaysia">Malaysia</option>
+                                            <option value="Arab Saudi">Arab Saudi</option>
+                                            <option value="Polandia">Polandia</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-700 mb-1">Jabatan / Sektor</label>
+                                        <input type="text" x-model="formCpmi.jobRole" class="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none" placeholder="Pabrik, Caregiver, PRT">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-700 mb-1">Nama Sponsor / PL (Isi Manual)</label>
+                                        <input type="text" x-model="formCpmi.sponsorNameManual" class="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none" placeholder="Ketik nama sponsor / PL">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-700 mb-1">Tahapan Awal Proses</label>
+                                        <select x-model="formCpmi.status" class="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                                            <template x-for="st in processStages" :key="st">
+                                                <option :value="st" x-text="st"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-700 mb-1">Tanggal Daftar</label>
+                                        <input type="date" x-model="formCpmi.regDate" class="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pt-4 flex justify-end gap-3 border-t border-slate-200">
+                                <button type="reset" class="px-4 py-2 border border-slate-300 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100">Reset</button>
+                                <button type="submit" class="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold flex items-center gap-2 shadow-md">
+                                    <i class="fa-solid fa-floppy-disk"></i> Simpan Pendaftaran CPMI
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- CPMI SPREADSHEET TAB -->
+                <div x-show="activeTab === 'cpmi'" x-transition class="space-y-4">
+                    <p class="text-xs text-slate-600 bg-white p-3 rounded-lg border border-slate-200">
+                        <strong>Spreadsheet Database Induk CPMI:</strong> Halaman ini memuat seluruh biodata CPMI terdaftar dalam mode spreadsheet interaktif, lengkap dengan kolom <strong>Tanggal Lahir</strong> dan <strong>Jumlah Pengeluaran</strong>.
+                    </p>
+
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap gap-3 items-center justify-between">
+                        <div class="flex items-center gap-2 flex-1 min-w-[240px]">
+                            <i class="fa-solid fa-magnifying-glass text-slate-400 text-sm"></i>
+                            <input type="text" x-model="searchCpmi" placeholder="Cari nama atau kode CPMI..." class="w-full text-xs border-none focus:outline-none" />
+                        </div>
+                        
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <select x-model="filterStatus" class="bg-slate-100 text-xs text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none">
+                                <option value="ALL">Semua Status Tahapan</option>
+                                <template x-for="st in processStages" :key="st">
+                                    <option :value="st" x-text="st"></option>
+                                </template>
+                            </select>
+
+                            <select x-model="filterDestination" class="bg-slate-100 text-xs text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none">
+                                <option value="ALL">Semua Negara Tujuan</option>
+                                <option value="Taiwan">Taiwan</option>
+                                <option value="Hong Kong">Hong Kong</option>
+                                <option value="Jepang">Jepang</option>
+                                <option value="Singapura">Singapura</option>
+                                <option value="Malaysia">Malaysia</option>
+                                <option value="Arab Saudi">Arab Saudi</option>
+                                <option value="Polandia">Polandia</option>
+                            </select>
+
+                            <button @click="activeTab = 'pendaftaran'" class="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-plus"></i> Tambah CPMI
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                            <div class="flex items-center gap-2 text-xs text-slate-600">
+                                <i class="fa-solid fa-file-spreadsheet text-emerald-600 text-base"></i>
+                                <span class="font-bold text-slate-800">Spreadsheet Lembar Kerja Induk CPMI</span>
+                                <span class="text-slate-400">|</span>
+                                <span class="text-slate-500 font-semibold" x-text="'Total: ' + getSearchedCpmiList().length + ' Baris Data'"></span>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto max-h-[550px]">
+                            <table class="w-full text-left text-xs border-collapse">
+                                <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 z-10 shadow-xs">
+                                    <tr class="divide-x divide-slate-200 border-b border-slate-300">
+                                        <th class="p-2.5 w-10 text-center bg-slate-200/80 font-mono text-[11px] text-slate-500">#</th>
+                                        <th class="p-2.5 min-w-[120px] bg-slate-100"><i class="fa-solid fa-barcode text-slate-400 mr-1"></i>Kode CPMI</th>
+                                        <th class="p-2.5 min-w-[160px] bg-slate-100"><i class="fa-solid fa-user text-slate-400 mr-1"></i>Nama Lengkap</th>
+                                        <th class="p-2.5 min-w-[110px] bg-slate-100"><i class="fa-solid fa-cake-candles text-slate-400 mr-1"></i>Tanggal Lahir</th>
+                                        <th class="p-2.5 min-w-[120px] bg-slate-100"><i class="fa-solid fa-earth-asia text-slate-400 mr-1"></i>Tujuan & Sektor</th>
+                                        <th class="p-2.5 min-w-[100px] bg-slate-100"><i class="fa-solid fa-ruler-vertical text-slate-400 mr-1"></i>TB & BB</th>
+                                        <th class="p-2.5 min-w-[130px] bg-slate-100"><i class="fa-solid fa-handshake text-slate-400 mr-1"></i>Sponsor (PL)</th>
+                                        <th class="p-2.5 min-w-[110px] bg-slate-100"><i class="fa-solid fa-house-user text-slate-400 mr-1"></i>Tgl Tampung</th>
+                                        <th class="p-2.5 min-w-[110px] bg-slate-100"><i class="fa-solid fa-calendar text-slate-400 mr-1"></i>Tgl Daftar</th>
+                                        <th class="p-2.5 min-w-[150px] text-right bg-slate-100"><i class="fa-solid fa-money-bill-wave text-emerald-600 mr-1"></i>Jumlah Pengeluaran</th>
+                                        <th class="p-2.5 min-w-[140px] bg-slate-100"><i class="fa-solid fa-list-check text-slate-400 mr-1"></i>Status Tahapan</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200">
+                                    <template x-for="(c, idx) in getSearchedCpmiList()" :key="c.id">
+                                        <tr class="hover:bg-slate-50 transition-colors divide-x divide-slate-200">
+                                            <td class="p-2.5 text-center bg-slate-50 font-mono text-[10px] text-slate-400 font-semibold" x-text="idx + 1"></td>
+                                            <td class="p-2.5 font-mono font-bold text-sky-700 bg-white" x-text="c.code"></td>
+                                            <td class="p-2.5 font-bold text-slate-800" x-text="c.name"></td>
+                                            <td class="p-2.5 font-mono text-slate-600 bg-white" x-text="c.dob || '-'"></td>
+                                            <td class="p-2.5 bg-white">
+                                                <span class="font-medium text-slate-800" x-text="c.destination"></span>
+                                                <div class="text-[10px] text-slate-500" x-text="c.jobRole"></div>
+                                            </td>
+                                            <td class="p-2.5 font-mono text-slate-700 font-medium bg-white">
+                                                <span x-text="(c.tb || '-') + ' / ' + (c.bb || '-')"></span>
+                                            </td>
+                                            <td class="p-2.5 text-slate-600 bg-white" x-text="c.sponsorNameManual || 'Direct'"></td>
+                                            <td class="p-2.5 font-mono text-slate-600 bg-white" x-text="c.shelterDate || '-'"></td>
+                                            <td class="p-2.5 font-mono text-slate-600 bg-white" x-text="c.regDate || '-'"></td>
+                                            <td class="p-2.5 text-right font-mono font-bold text-rose-600 bg-white" x-text="formatRupiah(getCpmiTotalExpense(c.name))"></td>
+                                            <td class="p-2.5 bg-white">
+                                                <span class="px-2.5 py-1 rounded-full text-[10px] font-bold shadow-xs" :class="getStatusBadgeClass(c.status)" x-text="c.status"></span>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <tr x-show="getSearchedCpmiList().length === 0">
+                                        <td colspan="11" class="p-8 text-center text-slate-400">
+                                            <i class="fa-solid fa-folder-open text-3xl mb-2"></i>
+                                            <p>Tidak ada data CPMI ditemukan.</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PROSES TAB -->
+                <div x-show="activeTab === 'proses'" x-transition class="space-y-4">
+                    <p class="text-xs text-slate-600 bg-white p-3 rounded-lg border border-slate-200">
+                        <strong>Modul Monitoring Data Proses CPMI:</strong> Pantau dan perbarui posisi tahapan CPMI. Ubah tahapan secara langsung pada sel tabel Spreadsheet, Kanban, atau cetak berkas di kolom aksi.
+                    </p>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                        <template x-for="st in processStages" :key="st">
+                            <div @click="filterProsesStage = filterProsesStage === st ? 'ALL' : st"
+                                 class="cursor-pointer bg-white p-3 rounded-xl border transition-all shadow-xs hover:border-sky-400"
+                                 :class="filterProsesStage === st ? 'border-sky-500 ring-2 ring-sky-200' : 'border-slate-200'">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[11px] font-bold text-slate-600" x-text="st"></span>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold" :class="getStatusBadgeClass(st)" x-text="getCpmiByStage(st).length"></span>
+                                </div>
+                                <p class="text-[10px] text-slate-400 mt-1" x-text="'Klik untuk filter ' + st"></p>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-sm">Tracking & Spreadsheet Data Proses CPMI</h3>
+                            <p class="text-xs text-slate-500">Kelola dan update tahapan alur berkas CPMI secara efisien.</p>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <button @click="addSampleProcessData()" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm" title="Generate Data Contoh Secara Otomatis">
+                                <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i>
+                                <span>+ Sample Data</span>
+                            </button>
+
+                            <button @click="activeTab = 'pendaftaran'" class="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-user-plus"></i>
+                                <span>+ Tambah Data Proses</span>
+                            </button>
+
+                            <button @click="exportProcessToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-file-excel"></i>
+                                <span>Export CSV</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="p-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                            <div class="flex items-center gap-2 text-xs text-slate-600">
+                                <i class="fa-solid fa-file-spreadsheet text-emerald-600 text-base"></i>
+                                <span class="font-bold text-slate-800">Lembar Kerja Spreadsheet CPMI</span>
+                                <span class="text-slate-400">|</span>
+                                <span class="text-slate-500 font-semibold" x-text="'Menampilkan: ' + getProsesSpreadsheetData().length + ' / ' + cpmiList.length + ' Baris Data'"></span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="text" x-model="searchProses" placeholder="Cari di spreadsheet..." class="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-sky-500 focus:outline-none w-48">
+                                <select x-model="filterProsesStage" class="text-xs bg-white border border-slate-300 rounded-lg px-2 py-1 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                                    <option value="ALL">Semua Tahap</option>
+                                    <template x-for="st in processStages" :key="st">
+                                        <option :value="st" x-text="st"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto max-h-[550px]">
+                            <table class="w-full text-left text-xs border-collapse">
+                                <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 z-10 shadow-xs">
+                                    <tr class="divide-x divide-slate-200 border-b border-slate-300">
+                                        <th class="p-2.5 w-10 text-center bg-slate-200/80 font-mono text-[11px] text-slate-500">#</th>
+                                        <th class="p-2.5 min-w-[120px] bg-slate-100"><i class="fa-solid fa-barcode text-slate-400 mr-1"></i>Kode CPMI</th>
+                                        <th class="p-2.5 min-w-[160px] bg-slate-100"><i class="fa-solid fa-user text-slate-400 mr-1"></i>Nama CPMI</th>
+                                        <th class="p-2.5 min-w-[120px] bg-slate-100"><i class="fa-solid fa-earth-asia text-slate-400 mr-1"></i>Tujuan</th>
+                                        <th class="p-2.5 min-w-[100px] bg-slate-100">TB & BB</th>
+                                        <th class="p-2.5 min-w-[130px] bg-slate-100"><i class="fa-solid fa-handshake text-slate-400 mr-1"></i>Sponsor (PL)</th>
+                                        <th class="p-2.5 min-w-[110px] bg-slate-100"><i class="fa-solid fa-house-user text-slate-400 mr-1"></i>Tgl Tampung</th>
+                                        <th class="p-2.5 min-w-[160px] bg-slate-100"><i class="fa-solid fa-list-check text-slate-400 mr-1"></i>Status Tahapan</th>
+                                        <th class="p-2.5 min-w-[140px] text-center bg-slate-100"><i class="fa-solid fa-gear text-slate-400 mr-1"></i>Aksi & Edit</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200">
+                                    <template x-for="(item, idx) in getProsesSpreadsheetData()" :key="item.id">
+                                        <tr class="hover:bg-sky-50/50 transition-colors divide-x divide-slate-200">
+                                            <td class="p-2.5 text-center bg-slate-50 font-mono text-[10px] text-slate-400 font-semibold" x-text="idx + 1"></td>
+                                            <td class="p-2.5 font-mono font-bold text-sky-700 bg-white" x-text="item.code"></td>
+                                            <td class="p-2.5 font-bold text-slate-800" x-text="item.name"></td>
+                                            <td class="p-2.5 font-medium text-slate-700 bg-white" x-text="item.destination"></td>
+                                            <td class="p-2.5 font-mono text-slate-700 bg-white" x-text="(item.tb || '-') + ' / ' + (item.bb || '-')"></td>
+                                            <td class="p-2.5 text-slate-600 bg-white" x-text="item.sponsorNameManual || 'Direct'"></td>
+                                            <td class="p-2.5 font-mono text-slate-600 bg-white" x-text="item.shelterDate || '-'"></td>
+                                            <td class="p-2.5 bg-white">
+                                                <select @change="updateDirectStatus(item, $event.target.value)" class="text-xs font-bold px-2.5 py-1 rounded-lg border border-slate-300 focus:outline-none shadow-2xs" :class="getStatusBadgeClass(item.status)">
+                                                    <template x-for="st in processStages" :key="st">
+                                                        <option :value="st" :selected="item.status === st" x-text="st"></option>
+                                                    </template>
+                                                </select>
+                                            </td>
+                                            <td class="p-2 text-center bg-white">
+                                                <div class="flex items-center justify-center gap-1">
+                                                    <button @click="printCpmiSingle(item)" class="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg text-xs" title="Cetak Biodata">
+                                                        <i class="fa-solid fa-print"></i>
+                                                    </button>
+                                                    <button @click="openEditCpmiModal(item)" class="p-1.5 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-lg text-xs" title="Edit Data CPMI">
+                                                        <i class="fa-solid fa-pen-to-square"></i>
+                                                    </button>
+                                                    <button @click="openCpmiDetail(item)" class="p-1.5 bg-sky-50 text-sky-600 hover:bg-sky-100 rounded-lg text-xs" title="Lihat Detail">
+                                                        <i class="fa-solid fa-eye"></i>
+                                                    </button>
+                                                    <button @click="deleteCpmi(item.id)" class="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg text-xs" title="Hapus">
+                                                        <i class="fa-solid fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MEDIKAL TAB -->
+                <div x-show="activeTab === 'medikal'" x-transition class="space-y-4">
+                    <p class="text-xs text-slate-600 bg-white p-3 rounded-lg border border-slate-200">
+                        <strong>Modul Medikal (MCU):</strong> Spreadsheet monitoring pemeriksaan kesehatan CPMI lengkap dengan informasi Klinik, Status Hasil MCU, Tanggal Periksa, Harga, Harga Klinik, dan Keuntungan.
+                    </p>
+
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex items-center gap-2 flex-1 min-w-[240px]">
+                            <i class="fa-solid fa-magnifying-glass text-slate-400 text-sm"></i>
+                            <input type="text" x-model="searchMedikal" placeholder="Cari nama CPMI atau klinik..." class="w-full text-xs border-none focus:outline-none" />
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button @click="openAddMedikalModal()" class="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-plus"></i> Tambah Data Medikal
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                            <div class="flex items-center gap-2 text-xs text-slate-600">
+                                <i class="fa-solid fa-file-spreadsheet text-teal-600 text-base"></i>
+                                <span class="font-bold text-slate-800">Spreadsheet Jurnal Medikal & MCU CPMI</span>
+                                <span class="text-slate-400">|</span>
+                                <span class="text-slate-500 font-semibold" x-text="'Total: ' + getFilteredMedikalList().length + ' Data'"></span>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto max-h-[550px]">
+                            <table class="w-full text-left text-xs border-collapse">
+                                <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 z-10 shadow-xs">
+                                    <tr class="divide-x divide-slate-200 border-b border-slate-300">
+                                        <th class="p-2.5 w-10 text-center bg-slate-200/80 font-mono text-[11px] text-slate-500">#</th>
+                                        <th class="p-2.5 min-w-[150px] bg-slate-100"><i class="fa-solid fa-user text-slate-400 mr-1"></i>Nama CPMI</th>
+                                        <th class="p-2.5 min-w-[140px] bg-slate-100"><i class="fa-solid fa-hospital text-slate-400 mr-1"></i>Klinik / Rumah Sakit</th>
+                                        <th class="p-2.5 min-w-[110px] bg-slate-100"><i class="fa-solid fa-calendar text-slate-400 mr-1"></i>Tgl Periksa</th>
+                                        <th class="p-2.5 min-w-[120px] bg-slate-100 text-right"><i class="fa-solid fa-money-bill text-slate-400 mr-1"></i>Harga (Rp)</th>
+                                        <th class="p-2.5 min-w-[130px] bg-slate-100 text-right"><i class="fa-solid fa-receipt text-slate-400 mr-1"></i>Harga Klinik (Rp)</th>
+                                        <th class="p-2.5 min-w-[120px] bg-slate-100 text-right"><i class="fa-solid fa-chart-line text-emerald-600 mr-1"></i>Keuntungan (Rp)</th>
+                                        <th class="p-2.5 min-w-[130px] bg-slate-100"><i class="fa-solid fa-stethoscope text-slate-400 mr-1"></i>Status MCU</th>
+                                        <th class="p-2.5 min-w-[180px] bg-slate-100">Keterangan / Catatan</th>
+                                        <th class="p-2.5 min-w-[120px] text-center bg-slate-100"><i class="fa-solid fa-gear text-slate-400 mr-1"></i>Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200">
+                                    <template x-for="(m, idx) in getFilteredMedikalList()" :key="m.id">
+                                        <tr class="hover:bg-teal-50/40 transition-colors divide-x divide-slate-200">
+                                            <td class="p-2.5 text-center bg-slate-50 font-mono text-[10px] text-slate-400 font-semibold" x-text="idx + 1"></td>
+                                            <td class="p-2.5 font-bold text-slate-800" x-text="m.cpmiName"></td>
+                                            <td class="p-2.5 text-slate-700 font-medium" x-text="m.clinicName"></td>
+                                            <td class="p-2.5 font-mono text-slate-600" x-text="m.checkDate"></td>
+                                            <td class="p-2.5 text-right font-mono font-bold text-sky-700" x-text="formatRupiah(m.price)"></td>
+                                            <td class="p-2.5 text-right font-mono font-bold text-amber-700" x-text="formatRupiah(m.clinicPrice)"></td>
+                                            <td class="p-2.5 text-right font-mono font-black text-emerald-600" x-text="formatRupiah((Number(m.price) || 0) - (Number(m.clinicPrice) || 0))"></td>
+                                            <td class="p-2.5">
+                                                <span class="px-2.5 py-1 rounded-full text-[10px] font-bold shadow-2xs"
+                                                      :class="{
+                                                        'bg-emerald-100 text-emerald-800 border border-emerald-300': m.status === 'FIT / Lolos',
+                                                        'bg-rose-100 text-rose-800 border border-rose-300': m.status === 'UNFIT / Tidak Lolos',
+                                                        'bg-amber-100 text-amber-800 border border-amber-300': m.status === 'Pending / Re-MCU'
+                                                      }"
+                                                      x-text="m.status"></span>
+                                            </td>
+                                            <td class="p-2.5 text-slate-600" x-text="m.notes"></td>
+                                            <td class="p-2 text-center bg-white">
+                                                <div class="flex items-center justify-center gap-1">
+                                                    <button @click="printMedikalRecord(m)" class="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg text-xs" title="Cetak MCU">
+                                                        <i class="fa-solid fa-print"></i>
+                                                    </button>
+                                                    <button @click="openEditMedikalModal(m)" class="p-1.5 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-lg text-xs" title="Edit Medikal">
+                                                        <i class="fa-solid fa-pen-to-square"></i>
+                                                    </button>
+                                                    <button @click="deleteMedikalRecord(m.id)" class="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg text-xs" title="Hapus">
+                                                        <i class="fa-solid fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <tr x-show="getFilteredMedikalList().length === 0">
+                                        <td colspan="10" class="p-8 text-center text-slate-400">
+                                            <i class="fa-solid fa-notes-medical text-3xl mb-2 text-slate-300"></i>
+                                            <p>Tidak ada data medikal ditemukan.</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SPONSOR TAB -->
+                <div x-show="activeTab === 'sponsor'" x-transition class="space-y-4">
+                    <p class="text-xs text-slate-600 bg-white p-3 rounded-lg border border-slate-200">
+                        <strong>Direktori Sponsor & Pengarah Lapangan (PL):</strong> Kelola mitra rekrutmen daerah, pantau jumlah perolehan CPMI dalam format Spreadsheet bersih, lengkap dengan kolom Aksi.
+                    </p>
+
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between flex-wrap gap-3">
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-sm">Database Sponsor & Pengarah Lapangan (PL)</h3>
+                            <p class="text-xs text-slate-500">Kelola daftar sponsor mitra dan total perolehan CPMI.</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button @click="openAddSponsorModal()" class="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-plus"></i> Tambah Sponsor Baru
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                                    <tr>
+                                        <th class="p-3 w-10 text-center font-mono text-slate-400">#</th>
+                                        <th class="p-3">Kode PL</th>
+                                        <th class="p-3">Nama Sponsor</th>
+                                        <th class="p-3">Wilayah</th>
+                                        <th class="p-3">No. Telepon</th>
+                                        <th class="p-3 text-center">Total CPMI</th>
+                                        <th class="p-3 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200">
+                                    <template x-for="(s, idx) in sponsorList" :key="s.id">
+                                        <tr class="hover:bg-slate-50">
+                                            <td class="p-3 text-center font-mono text-slate-400" x-text="idx + 1"></td>
+                                            <td class="p-3 font-mono font-bold text-purple-700" x-text="s.code"></td>
+                                            <td class="p-3 font-bold text-slate-800" x-text="s.name"></td>
+                                            <td class="p-3 text-slate-600" x-text="s.region"></td>
+                                            <td class="p-3 font-mono text-slate-600" x-text="s.phone"></td>
+                                            <td class="p-3 text-center font-bold text-sky-600" x-text="getSponsorCandidateCount(s.id)"></td>
